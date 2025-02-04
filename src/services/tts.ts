@@ -1,10 +1,14 @@
+import { KokoroVoice } from "kokoro-ts/src/types"
+import OpenAI from "openai"
+
+import { stream } from "@plasmohq/messaging"
 import { Storage } from "@plasmohq/storage"
 
 const storage = new Storage()
 
 const DEFAULT_TTS_PROVIDER = "browser"
 
-const AVAILABLE_TTS_PROVIDERS = ["browser", "elevenlabs"] as const
+const AVAILABLE_TTS_PROVIDERS = ["browser", "elevenlabs", "kokoro"] as const
 
 export const getTTSProvider = async (): Promise<
   (typeof AVAILABLE_TTS_PROVIDERS)[number]
@@ -90,6 +94,75 @@ export const setElevenLabsModel = async (elevenLabsModel: string) => {
   await storage.set("elevenLabsModel", elevenLabsModel)
 }
 
+export const getKokoroApiKey = async () => {
+  const data = await storage.get("kokoroApiKey")
+  return data
+}
+
+export const setKokoroApiKey = async (kokoroApiKey: string) => {
+  await storage.set("kokoroApiKey", kokoroApiKey)
+}
+
+export const getKokoroVoiceId = async () => {
+  const data = await storage.get("kokoroVoiceId")
+  return data
+}
+
+export const setKokoroVoiceId = async (kokoroVoiceId: string) => {
+  await storage.set("kokoroVoiceId", kokoroVoiceId)
+}
+
+export const getKokoroApiUrl = async () => {
+  const data = await storage.get("kokoroApiUrl")
+  return data
+}
+
+export const setKokoroApiUrl = async (kokoroApiUrl: string) => {
+  await storage.set("kokoroApiUrl", kokoroApiUrl)
+}
+
+export const streamKokoroTTS = async (input: string, voice: string) => {
+  try {
+      const apiUrl = await getKokoroApiUrl()
+    const client = new OpenAI({
+        baseURL: `${apiUrl}/v1`,
+        apiKey: "not-needed",
+      dangerouslyAllowBrowser: true
+    })
+    const response = await client.audio.speech.withResponse().create({
+      model: "kokoro",
+      voice: voice,
+      input: input
+    })
+    return response.body
+  } catch (error) {
+    console.error("Error streaming Kokoro TTS:", error)
+  }
+}
+
+
+export const generateTTSStream = async (input: string, voice: string) => {
+  const ttsProvider = await getTTSProvider()
+  
+  switch (ttsProvider) {
+    case "kokoro":
+        return await streamKokoroTTS(input, voice)
+    default:
+        if (import.meta.env.BROWSER === "chrome") {
+    const tts = await chrome.tts.speak(input, {
+      voiceName: voice,
+      rate: 1.2
+    })
+    return tts
+  } else {
+    const tts = new SpeechSynthesisUtterance(input)
+    tts.voice = speechSynthesis
+      .getVoices()
+      .find((v) => v.name === voice)
+    speechSynthesis.speak(tts)
+  }
+  }
+      model: "kokoro",
 export const getResponseSplitting = async () => {
   const data = await storage.get("ttsResponseSplitting")
   if (!data || data.length === 0 || data === "") {
@@ -111,7 +184,10 @@ export const getTTSSettings = async () => {
     ssmlEnabled,
     elevenLabsApiKey,
     elevenLabsVoiceId,
-    elevenLabsModel,
+      elevenLabsModel,
+      kokoroApiKey,
+      kokoroVoiceId,
+      kokoroApiUrl,
     responseSplitting
   ] = await Promise.all([
     isTTSEnabled(),
@@ -121,7 +197,10 @@ export const getTTSSettings = async () => {
     isSSMLEnabled(),
     getElevenLabsApiKey(),
     getElevenLabsVoiceId(),
-    getElevenLabsModel(),
+      getElevenLabsModel(),
+      getKokoroApiKey(),
+      getKokoroVoiceId(),
+      getKokoroApiUrl(),
     getResponseSplitting()
   ])
 
@@ -133,6 +212,9 @@ export const getTTSSettings = async () => {
     ssmlEnabled,
     elevenLabsApiKey,
     elevenLabsVoiceId,
+      kokoroApiKey,
+      kokoroVoiceId,
+      kokoroApiUrl,
     elevenLabsModel,
     responseSplitting
   }
@@ -145,6 +227,9 @@ export const setTTSSettings = async ({
   ssmlEnabled,
   elevenLabsApiKey,
   elevenLabsVoiceId,
+    kokoroApiKey,
+    kokoroVoiceId,
+    kokoroApiUrl,
   elevenLabsModel,
   responseSplitting
 }: {
@@ -154,6 +239,9 @@ export const setTTSSettings = async ({
   ssmlEnabled: boolean
   elevenLabsApiKey: string
   elevenLabsVoiceId: string
+    kokoroApiKey: string
+    kokoroVoiceId: string
+    kokoroApiUrl: string
   elevenLabsModel: string
   responseSplitting: string
 }) => {
@@ -164,7 +252,11 @@ export const setTTSSettings = async ({
     setSSMLEnabled(ssmlEnabled),
     setElevenLabsApiKey(elevenLabsApiKey),
     setElevenLabsVoiceId(elevenLabsVoiceId),
+      setKokoroApiKey(kokoroApiKey),
+      setKokoroVoiceId(kokoroVoiceId),
+      setKokoroApiUrl(kokoroApiUrl),
     setElevenLabsModel(elevenLabsModel),
     setResponseSplitting(responseSplitting)
   ])
 }
+
